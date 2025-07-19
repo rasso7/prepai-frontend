@@ -18,41 +18,69 @@ const SignUp = ({setCurrentPage}) => {
 
   const { updateUser } =useContext(UserContext);
 
-  const handleSignUp = async (e) => {
-    // Handle SignUp logic here
+ const handleSignUp = async (e) => {
     e.preventDefault();
-    if(!fullName) { setError('Please enter a full name'); return;}
-    if(!validateEmail(email)) {setError('Please enter a valid email address'); return;}
-    if(!password) { setError('Please enter a password'); return;}
     
-
-    setError('');
-
-
-    //signuop api call
-    try{
-       if (profilePic) {
-    const imgUploadRes = await uploadImage(profilePic);
-    const profileImageUrl = imgUploadRes.imageUrl || "";
-    
-    const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
-      name: fullName,
-      email,
-      password,
-      profileImageUrl,
-    });
-
-    const { token } = response.data;
-
-    if (token) {
-      localStorage.setItem("token", token);
-      updateUser(response.data);
-      navigate('/dashboard');
+    // Validation
+    if(!fullName.trim()) { 
+      setError('Please enter a full name'); 
+      return;
     }
-  }
-    } catch(error){
-      if(error.response && error.response.data.message) setError(error.response.data.message);
-      else setError(error.message);
+    if(!validateEmail(email)) {
+      setError('Please enter a valid email address'); 
+      return;
+    }
+    if(!password) { 
+      setError('Please enter a password'); 
+      return;
+    }
+    
+    setError('');
+    setIsLoading(true);
+
+    try {
+      let profileImageUrl = "";
+      
+      // Upload image only if profilePic exists
+      if (profilePic) {
+        try {
+          const imgUploadRes = await uploadImage(profilePic);
+          profileImageUrl = imgUploadRes.imageUrl || "";
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue with signup even if image upload fails
+          setError('Image upload failed, but continuing with signup...');
+        }
+      }
+
+      // Proceed with signup regardless of image upload status
+      const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
+        name: fullName.trim(),
+        email: email.trim(),
+        password,
+        profileImageUrl,
+      });
+
+      const { token } = response.data;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        updateUser(response.data);
+        navigate('/dashboard');
+      }
+
+    } catch(error) {
+      console.error('Signup error:', error);
+      
+      if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else if (error.message) {
+        setError(error.message);
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
